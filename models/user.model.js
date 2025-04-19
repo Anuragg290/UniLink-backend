@@ -65,8 +65,8 @@ const userSchema = new mongoose.Schema(
 
     profilePicture: { type: String, default: "" },
     bannerImg: { type: String, default: "" },
-    headline: { type: String, default: "Linkedin User" },
-    location: { type: String, default: "Earth" },
+    headline: { type: String, default: "UniLink User" },
+    location: { type: String, default: "SRM University AP" },
     about: { type: String, default: "" },
     skills: [skillSchema],
 
