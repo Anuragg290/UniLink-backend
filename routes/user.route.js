@@ -33,6 +33,7 @@ import {
   updateSkill,
   deleteSkill,
   searchUsers,
+  deleteCertification,
 } from "../controllers/user.controller.js";
 import upload from "../Configurations/upload.js";
 
@@ -60,6 +61,7 @@ router.post(
 router.post("/add-experience", protectRoute, addExperience);
 router.post("/add-education", protectRoute, addEducation);
 router.put("/update-certification", protectRoute, updateCertification);
+router.delete("/delete-certification/:certId", protectRoute, deleteCertification);
 router.put("/update-experience", protectRoute, updateExperience);
 router.put("/update-education", protectRoute, updateEducation);
 router.get("/skills", protectRoute, getSkills); // ✅ Get all skills

@@ -132,8 +132,7 @@ export const updateProfile = async (req, res) => {
 
 export const addCertification = async (req, res) => {
   try {
-    const { title, institute, startDate, endDate, description, file } =
-      req.body;
+    const { title, institute, startDate, endDate, description, file } = req.body;
 
     if (!title || !institute || !startDate || !endDate || !description) {
       return res.status(400).json({
@@ -144,7 +143,10 @@ export const addCertification = async (req, res) => {
 
     const user = await User.findById(req.user._id);
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ 
+        success: false,
+        message: "User not found" 
+      });
     }
 
     let fileUrl = "";
@@ -168,7 +170,7 @@ export const addCertification = async (req, res) => {
     };
 
     user.certifications.push(newCertification);
-    await user.save();
+    await user.save({ validateModifiedOnly: true }); // Only validate modified fields
 
     res.status(201).json({
       success: true,
@@ -177,8 +179,76 @@ export const addCertification = async (req, res) => {
     });
   } catch (error) {
     console.error("Error in addCertification:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
+    res.status(500).json({ 
+      success: false,
+      message: "Server error", 
+      error: error.message 
+    });
+  }
+};
+
+export const deleteCertification = async (req, res) => {
+  try {
+    const { certId } = req.params;
+
+    // Validate the certId format first
+    if (!mongoose.Types.ObjectId.isValid(certId)) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Invalid certification ID format" 
+      });
+    }
+
+    // Find the user and update in one operation using $pull
+    const updatedUser = await User.findOneAndUpdate(
+      { _id: req.user._id },
+      { $pull: { certifications: { _id: certId } } },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ 
+        success: false,
+        message: "User not found" 
+      });
+    }
+
+    // Check if certification was actually removed
+    const certificationExists = updatedUser.certifications.some(
+      cert => cert._id.toString() === certId
+    );
+
+    if (certificationExists) {
+      return res.status(404).json({ 
+        success: false,
+        message: "Certification not found or already deleted" 
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Certification deleted successfully",
+      data: updatedUser.certifications,
+    });
+
+  } catch (error) {
+    console.error("Error in deleteCertification:", error);
+    
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({ 
+        success: false,
+        message: "Validation error",
+        errors 
+      });
+    }
+
+    res.status(500).json({ 
+      success: false,
+      message: "Server error", 
+      error: error.message 
+    });
+  }
 };
 
 export const addExperience = async (req, res) => {

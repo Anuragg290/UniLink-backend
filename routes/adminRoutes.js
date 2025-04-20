@@ -8,6 +8,7 @@ import {
   getPendingCertifications,
   getUserReportByAdmin,
   getUsersWithSkills,
+  rejectCertification,
   rejectSkill,
 } from "../controllers/adminController.js";
 import { protectRoute } from "../middleware/auth.middleware.js";
@@ -37,7 +38,13 @@ adminRouter.put(
   },
   approveCertification
 );
-
+adminRouter.delete(
+  "/certifications/reject/:certId",
+  (req, res, next) => {
+    protectRoute(req, res, next, ["admin"]);
+  },
+  rejectCertification
+)
 adminRouter.get(
   "/skills/pending",
   (req, res, next) => {

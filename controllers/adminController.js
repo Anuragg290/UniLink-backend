@@ -7,6 +7,7 @@ import { readMultiple, readSingle } from "../database/dbFunctions.js";
 import { HTTP_STATUS } from "../services/constants.js";
 import Post from "../models/post.model.js";
 import Event from "../models/eventModel.js";
+import mongoose from "mongoose";
 
 export const getAllUsers = async (req, res) => {
   try {
@@ -69,27 +70,58 @@ export const approveCertification = async (req, res) => {
   try {
     const { userId, certId } = req.params;
 
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    // Validate ObjectId format first
+    if (!mongoose.Types.ObjectId.isValid(userId) || !mongoose.Types.ObjectId.isValid(certId)) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Invalid ID format" 
+      });
+    }
 
-    const cert = user.certifications.id(certId);
-    if (!cert)
-      return res.status(404).json({ message: "Certification not found" });
+    // Use findOneAndUpdate for atomic operation
+    const updatedUser = await User.findOneAndUpdate(
+      {
+        _id: userId,
+        "certifications._id": certId
+      },
+      {
+        $set: {
+          "certifications.$.status": "approved",
+          "certifications.$.isVerified": true,
+          // Update user verification status if all certs are now verified
+          isVerified: await checkAllCertificationsVerified(userId)
+        }
+      },
+      { new: true, runValidators: true }
+    );
 
-    cert.status = "approved";
-    cert.isVerified = true;
+    if (!updatedUser) {
+      return res.status(404).json({ 
+        success: false,
+        message: "User or certification not found" 
+      });
+    }
 
-    const allCertsVerified = user.certifications.every((c) => c.isVerified);
-    user.isVerified = allCertsVerified;
-
-    await user.save();
-
-    res.json({ success: true, message: "Certification approved", user });
+    res.json({ 
+      success: true, 
+      message: "Certification approved", 
+      user: updatedUser 
+    });
   } catch (error) {
     console.error("Error approving certification:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: "Server error", 
+      error: error.message 
+    });
   }
 };
+
+// Helper function to check if all certifications are verified
+async function checkAllCertificationsVerified(userId) {
+  const user = await User.findById(userId);
+  return user.certifications.every(cert => cert.isVerified);
+}
 
 // Reject Certification
 export const rejectCertification = async (req, res) => {
@@ -114,54 +146,6 @@ export const rejectCertification = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-
-// export const getUserReportByAdmin = async (req, res) => {
-//   try {
-//     const { userId } = req.params;
-
-//     // Check if user exists
-//     const userExists = await User.findById(userId);
-//     if (!userExists) {
-//       return res.status(404).json({ message: "User not found" });
-//     }
-
-//     // Total posts count
-//     const totalPosts = await Post.countDocuments({ author: userId });
-
-//     // Total comments received on user's posts
-//     const userPosts = await Post.find({ author: userId });
-//     const totalComments = userPosts.reduce(
-//       (sum, post) => sum + post.comments.length,
-//       0
-//     );
-
-//     // Total shares count
-//     const totalShares = await Post.countDocuments({
-//       sharedPost: { $ne: null },
-//       author: userId,
-//     });
-
-//     // Total likes received on user's posts
-//     const totalLikes = userPosts.reduce(
-//       (sum, post) => sum + post.likes.length,
-//       0
-//     );
-
-//     res.status(200).json({
-//       success: true,
-//       user: userExists.name,
-//       data: {
-//         totalPosts,
-//         totalComments,
-//         totalShares,
-//         totalLikes,
-//       },
-//     });
-//   } catch (error) {
-//     console.error("Error in getUserReportByAdmin controller:", error);
-//     res.status(500).json({ message: "Server error" });
-//   }
-// };
 
 
 // ----------------------------------------SKILLS
